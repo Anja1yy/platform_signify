@@ -10,7 +10,11 @@ from gesture_recognition import GestureRecognizer
 # Initialize Flask app
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, 
+                   cors_allowed_origins="*",
+                   ping_timeout=60,
+                   ping_interval=25,
+                   async_mode='eventlet')
 
 # Initialize database
 init_db()
@@ -20,6 +24,15 @@ gesture_recognizer = GestureRecognizer()
 
 # Active participants (stored in memory but keyed by meeting ID)
 active_participants = {}
+
+# STUN/TURN servers configuration for WebRTC
+ICE_SERVERS = {
+    'iceServers': [
+        {'urls': 'stun:stun.l.google.com:19302'},
+        {'urls': 'stun:stun1.l.google.com:19302'},
+        {'urls': 'stun:stun2.l.google.com:19302'},
+    ]
+}
 
 @app.route('/')
 def home():
@@ -106,7 +119,11 @@ def meeting(meeting_id):
     if meeting_id not in active_participants:
         active_participants[meeting_id] = {}
     
-    return render_template('meeting.html', meeting_id=meeting_id, username=session['user_name'], user_id=session['user_id'])
+    return render_template('meeting.html', 
+                         meeting_id=meeting_id, 
+                         username=session['user_name'], 
+                         user_id=session['user_id'],
+                         ice_servers=ICE_SERVERS)
 
 @app.route('/thankyou')
 def thankyou():
@@ -155,7 +172,8 @@ def on_join(data):
     
     active_participants[meeting_id][user_id] = {
         'name': username,
-        'id': user_id
+        'id': user_id,
+        'connected': True
     }
     
     # Notify ALL participants including the new user
@@ -163,85 +181,95 @@ def on_join(data):
         'user_id': user_id,
         'username': username,
         'participants': list(active_participants[meeting_id].values())
-    }, room=meeting_id)
+    }, room=meeting_id, broadcast=True)
     
     # Send current participants list to the new user
     emit('initialize_participants', {
-        'participants': list(active_participants[meeting_id].values())
-    })
+        'participants': list(active_participants[meeting_id].values()),
+        'ice_servers': ICE_SERVERS
+    }, room=user_id)
 
-@socketio.on('connect')
-def handle_connect():
-    emit('connection_established', {'status': 'connected'})
+@socketio.on('disconnect')
+def handle_disconnect():
+    for meeting_id in active_participants:
+        user_id = session.get('user_id')
+        if user_id in active_participants[meeting_id]:
+            username = active_participants[meeting_id][user_id]['name']
+            del active_participants[meeting_id][user_id]
+            emit('user_left', {
+                'user_id': user_id,
+                'username': username
+            }, room=meeting_id, broadcast=True)
 
-@socketio.on('request_participants')
-def handle_participants_request(data):
+@socketio.on('offer')
+def handle_offer(data):
     meeting_id = data['meeting_id']
-    if meeting_id in active_participants:
-        emit('initialize_participants', {
-            'participants': list(active_participants[meeting_id].values())
-        })
-
-@socketio.on('leave')
-def on_leave(data):
-    meeting_id = data['meeting_id']
+    to_user_id = data['to_user_id']
+    offer = data['offer']
     user_id = session.get('user_id')
-    username = session.get('user_name')
     
-    if not user_id or not username:
+    if not user_id or user_id not in active_participants.get(meeting_id, {}):
         return
     
-    leave_room(meeting_id)
+    username = active_participants[meeting_id][user_id]['name']
+    print(f"Forwarding offer from {username} ({user_id}) to {to_user_id}")
     
-    # Remove participant from meeting
-    if meeting_id in active_participants and user_id in active_participants[meeting_id]:
-        del active_participants[meeting_id][user_id]
-    
-    # If no participants left, clean up (but don't delete from database)
-    if meeting_id in active_participants and not active_participants[meeting_id]:
-        del active_participants[meeting_id]
-    
-    # Notify other participants
-    emit('user_left', {
+    emit('offer', {
+        'offer': offer,
         'user_id': user_id,
         'username': username
-    }, to=meeting_id)
+    }, room=to_user_id)
 
-@socketio.on('gesture_message')
-def handle_gesture_message(data):
+@socketio.on('answer')
+def handle_answer(data):
     meeting_id = data['meeting_id']
+    to_user_id = data['to_user_id']
+    answer = data['answer']
     user_id = session.get('user_id')
-    username = session.get('user_name')
-    message = data['message']
     
-    if not user_id or not username:
+    if not user_id or user_id not in active_participants.get(meeting_id, {}):
         return
     
-    # Broadcast the message to all participants in the meeting
-    emit('new_message', {
-        'user_id': user_id,
-        'username': username,
-        'message': message,
-        'type': 'gesture'
-    }, to=meeting_id)
+    print(f"Forwarding answer from {user_id} to {to_user_id}")
+    emit('answer', {
+        'answer': answer,
+        'user_id': user_id
+    }, room=to_user_id)
+
+@socketio.on('ice_candidate')
+def handle_ice_candidate(data):
+    meeting_id = data['meeting_id']
+    to_user_id = data['to_user_id']
+    candidate = data['candidate']
+    user_id = session.get('user_id')
+    
+    if not user_id or user_id not in active_participants.get(meeting_id, {}):
+        return
+    
+    print(f"Forwarding ICE candidate from {user_id} to {to_user_id}")
+    emit('ice_candidate', {
+        'candidate': candidate,
+        'user_id': user_id
+    }, room=to_user_id)
 
 @socketio.on('chat_message')
 def handle_chat_message(data):
     meeting_id = data['meeting_id']
     user_id = session.get('user_id')
-    username = session.get('user_name')
-    message = data['message']
     
-    if not user_id or not username:
+    if not user_id or user_id not in active_participants.get(meeting_id, {}):
         return
     
-    # Broadcast the message to all participants in the meeting
+    username = active_participants[meeting_id][user_id]['name']
+    message = data['message']
+    
+    print(f"Chat message from {username} in meeting {meeting_id}: {message}")
     emit('new_message', {
         'user_id': user_id,
         'username': username,
         'message': message,
         'type': 'chat'
-    }, to=meeting_id)
+    }, room=meeting_id, broadcast=True)
 
 @socketio.on('video_stream')
 def handle_video_stream(data):
@@ -257,61 +285,6 @@ def handle_video_stream(data):
         'user_id': user_id,
         'stream': stream_data
     }, to=meeting_id, skip_sid=request.sid)
-
-# Add these new socket event handlers to your app.py file
-
-@socketio.on('offer')
-def handle_offer(data):
-    meeting_id = data['meeting_id']
-    to_user_id = data['to_user_id']
-    offer = data['offer']
-    user_id = session.get('user_id')
-    username = session.get('user_name')
-    
-    if not user_id or not username:
-        return
-    
-    print(f"Forwarding offer from {user_id} to {to_user_id}")
-    # Forward the offer to the intended recipient
-    emit('offer', {
-        'offer': offer,
-        'user_id': user_id,
-        'username': username
-    }, room=to_user_id)
-
-@socketio.on('answer')
-def handle_answer(data):
-    meeting_id = data['meeting_id']
-    to_user_id = data['to_user_id']
-    answer = data['answer']
-    user_id = session.get('user_id')
-    
-    if not user_id:
-        return
-    
-    print(f"Forwarding answer from {user_id} to {to_user_id}")
-    # Forward the answer to the intended recipient
-    emit('answer', {
-        'answer': answer,
-        'user_id': user_id
-    }, room=to_user_id)
-
-@socketio.on('ice_candidate')
-def handle_ice_candidate(data):
-    meeting_id = data['meeting_id']
-    to_user_id = data['to_user_id']
-    candidate = data['candidate']
-    user_id = session.get('user_id')
-    
-    if not user_id:
-        return
-    
-    print(f"Forwarding ICE candidate from {user_id} to {to_user_id}")
-    # Forward the ICE candidate to the intended recipient
-    emit('ice_candidate', {
-        'candidate': candidate,
-        'user_id': user_id
-    }, room=to_user_id)
 
 @socketio.on('get_user_info')
 def handle_get_user_info(data):
