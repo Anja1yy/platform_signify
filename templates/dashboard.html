@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signify - Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <h1>Signify</h1>
+                <p>Gesture to Speech for Virtual Meetings</p>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('home') }}">Home</a></li>
+                    <li><a href="{{ url_for('dashboard') }}" class="active">Dashboard</a></li>
+                    <li><a href="{{ url_for('login') }}" onclick="localStorage.clear();">Logout</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <main class="dashboard-section">
+            <div class="welcome-container">
+                <h2>Welcome, {{ username }}!</h2>
+                <p>Start or join a meeting to begin using sign language in real-time.</p>
+            </div>
+
+            {% if error %}
+            <div class="error-message">
+                {{ error }}
+            </div>
+            {% endif %}
+
+            <div class="meeting-options">
+                <div class="meeting-card new-meeting">
+                    <h3>New Meeting</h3>
+                    <p>Start a new meeting and invite others to join.</p>
+                    <a href="{{ url_for('create_meeting') }}" class="btn primary">Start Meeting</a>
+                </div>
+                
+                <div class="meeting-card join-meeting">
+                    <h3>Join Meeting</h3>
+                    <p>Enter a meeting code to join an existing meeting.</p>
+                    <form action="{{ url_for('join_meeting') }}" method="POST" class="join-form">
+                        <input type="text" name="meeting_id" placeholder="Enter meeting code" required>
+                        <button type="submit" class="btn primary">Join</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="dashboard-info">
+                <h3>Using Signify in Meetings</h3>
+                <ul>
+                    <li>Enable the gesture button in meetings to activate sign language recognition.</li>
+                    <li>Your signs will be converted to speech for all participants to hear.</li>
+                    <li>Gestures will also appear in the chat box for reference.</li>
+                    <li>Toggle off the gesture button when you're not signing.</li>
+                </ul>
+            </div>
+        </main>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Signify. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

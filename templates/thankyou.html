@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signify - Thank You</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <h1>Signify</h1>
+                <p>Gesture to Speech for Virtual Meetings</p>
+            </div>
+        </header>
+
+        <main class="thankyou-section">
+            <div class="thankyou-container">
+                <h2>Meeting Ended</h2>
+                <p>Thank you for using Signify. We hope it made your communication more accessible.</p>
+                
+                <div class="thankyou-actions">
+                    <a href="{{ url_for('meeting', meeting_id=meeting_id) }}" class="btn primary">Rejoin Meeting</a>
+                    <a href="{{ url_for('dashboard') }}" class="btn secondary">Go to Dashboard</a>
+                    <a href="{{ url_for('home') }}" class="btn tertiary">Back to Home</a>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Signify. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

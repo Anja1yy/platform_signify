@@ -1,0 +1,29 @@
+# Web Framework
+Flask==2.3.3
+Flask-SocketIO==5.3.4
+python-socketio==5.8.0
+python-engineio==4.5.1
+
+# Machine Learning
+tensorflow==2.13.0  # Compatible with Python 3.11
+numpy==1.24.3
+scikit-learn==1.3.0
+opencv-python==4.8.0.76
+pillow==10.0.0
+
+# Data Processing
+pandas==2.0.3
+
+# Utilities
+python-dotenv==1.0.0
+eventlet==0.33.3  # For SocketIO support
+gevent==23.7.0    # Alternative for SocketIO
+gevent-websocket==0.10.1
+
+# Browser WebRTC support
+aiortc==1.5.0     # For WebRTC functionality
+
+# Text-to-Speech
+pyttsx3==2.90     # Optional for speech synthesis
+gTTS==2.3.2       # Google Text-to-Speech alternative
+gunicorn==20.1.0

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signify - {% if signup %}Sign Up{% else %}Login{% endif %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <h1>Signify</h1>
+                <p>Gesture to Speech for Virtual Meetings</p>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('home') }}">Home</a></li>
+                    <li><a href="{{ url_for('login') }}" class="active">Login</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <main class="auth-section">
+            <div class="auth-container">
+                <div class="auth-tabs">
+                    <button class="auth-tab {% if not signup %}active{% endif %}" 
+                            onclick="location.href='{{ url_for('login') }}'">Login</button>
+                    <button class="auth-tab {% if signup %}active{% endif %}" 
+                            onclick="location.href='{{ url_for('signup') }}'">Sign Up</button>
+                </div>
+
+                {% if error %}
+                <div class="error-message">
+                    {{ error }}
+                </div>
+                {% endif %}
+
+                {% if signup %}
+                <!-- Sign Up Form -->
+                <form action="{{ url_for('signup') }}" method="POST" class="auth-form">
+                    <div class="form-group">
+                        <label for="name">Full Name</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm-password">Confirm Password</label>
+                        <input type="password" id="confirm-password" name="confirm_password" required>
+                    </div>
+                    <button type="submit" class="btn primary full-width">Create Account</button>
+                </form>
+                {% else %}
+                <!-- Login Form -->
+                <form action="{{ url_for('login') }}" method="POST" class="auth-form">
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+                    <button type="submit" class="btn primary full-width">Login</button>
+                </form>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Signify. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        // Form validation for matching passwords
+        document.addEventListener('DOMContentLoaded', function() {
+            const signupForm = document.querySelector('form');
+            if (signupForm) {
+                signupForm.addEventListener('submit', function(e) {
+                    const password = document.getElementById('password');
+                    const confirmPassword = document.getElementById('confirm-password');
+                    
+                    if (confirmPassword && password.value !== confirmPassword.value) {
+                        e.preventDefault();
+                        alert('Passwords do not match');
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
